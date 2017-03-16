@@ -94,7 +94,16 @@ float ypr[3];           // [yaw, pitch, roll]   yaw/pitch/roll container and gra
 // packet structure for InvenSense teapot demo
 uint8_t teapotPacket[14] = { '$', 0x02, 0,0, 0,0, 0,0, 0,0, 0x00, 0x00, '\r', '\n' };
 
+// ================================================================
+// ===                   ESP8266 Wifi setup                     ===
+// ================================================================
 
+#include <ESP8266WiFi.h>
+
+const char* ssid = "iPhone_de_Marc";
+const char* password = "IWannaPlayMinetest";
+
+WiFiServer server(80);
 
 // ================================================================
 // ===               INTERRUPT DETECTION ROUTINE                ===
@@ -126,6 +135,31 @@ void setup() {
     Serial.begin(115200);
 
     while (!Serial); // wait for Leonardo enumeration, others continue immediately
+
+    // Connect to WiFi network
+    Serial.println();
+    Serial.println();
+    Serial.print("Connecting to ");
+    Serial.println(ssid);
+
+    WiFi.begin(ssid, password);
+
+    while (WiFi.status() != WL_CONNECTED) {
+      delay(500);
+      Serial.print(".");
+    }
+    Serial.println("");
+    Serial.println("WiFi connected");
+
+    // Start the server
+    server.begin();
+    Serial.println("Server started");
+
+    // Print the IP address
+    Serial.print("Use this URL to connect: ");
+    Serial.print("http://");
+    Serial.print(WiFi.localIP());
+    Serial.println("/");
 
     // NOTE: 8MHz or slower host processors, like the Teensy @ 3.3v or Ardunio
     // Pro Mini running at 3.3v, cannot handle this baud rate reliably due to
@@ -186,6 +220,8 @@ void setup() {
 // ===                    MAIN PROGRAM LOOP                     ===
 // ================================================================
 
+String serialized = "";
+
 void loop() {
     // if programming failed, don't try to do anything
     if (!dmpReady) return;
@@ -237,72 +273,100 @@ void loop() {
         mpu.dmpGetLinearAccel(&aaReal, &aa, &gravity);
         mpu.dmpGetLinearAccelInWorld(&aaWorld, &aaReal, &q);
 
-        String serialized = "{sensor:{";
+        serialized = "{\"sensor\":{";
 
         // display quaternion values in easy matrix form: w x y z
-        serialized += "quaternion:{";
-        serialized += "w:";
+        serialized += "\"quaternion\":{";
+        serialized += "\"w\":";
         serialized += q.w;
-        serialized += ",x:";
+        serialized += ",\"x\":";
         serialized += q.x;
-        serialized += ",y:";
+        serialized += ",\"y\":";
         serialized += q.y;
-        serialized += ",z:";
+        serialized += ",\"z\":";
         serialized += q.z;
         serialized += "},";
 
         // display Euler angles in degrees
-        serialized += "eulerAngles:{";
-        serialized += "alpha:";
+        serialized += "\"eulerAngles\":{";
+        serialized += "\"alpha\":";
         serialized += euler[0] * 180/M_PI;
-        serialized += ",beta:";
+        serialized += ",\"beta\":";
         serialized += euler[1] * 180/M_PI;
-        serialized += ",gamma:";
+        serialized += ",\"gamma\":";
         serialized += euler[2] * 180/M_PI;
         serialized += "},";
 
         // display YPR angles in degrees
-        serialized += "yawPitchRoll:{";
-        serialized += "yaw:";
+        serialized += "\"yawPitchRoll\":{";
+        serialized += "\"yaw\":";
         serialized += ypr[0] * 180/M_PI;
-        serialized += ",pitch:";
+        serialized += ",\"pitch\":";
         serialized += ypr[1] * 180/M_PI;
-        serialized += ",roll:";
+        serialized += ",\"roll\":";
         serialized += ypr[2] * 180/M_PI;
         serialized += "},";
 
         // display real acceleration, adjusted to remove gravity
-        serialized += "acceleration:{";
-        serialized += "x:";
+        serialized += "\"acceleration\":{";
+        serialized += "\"x\":";
         serialized += aaReal.x;
-        serialized += ",y:";
+        serialized += ",\"y\":";
         serialized += aaReal.y;
-        serialized += ",z:";
+        serialized += ",\"z\":";
         serialized += aaReal.z;
         serialized += "},";
 
         // display initial world-frame acceleration, adjusted to remove gravity
         // and rotated based on known orientation from quaternion
-        serialized += "worldAcceleration:{";
-        serialized += "x:";
+        serialized += "\"worldAcceleration\":{";
+        serialized += "\"x\":";
         serialized += aaWorld.x;
-        serialized += ",y:";
+        serialized += ",\"y\":";
         serialized += aaWorld.y;
-        serialized += ",z:";
+        serialized += ",\"z\":";
         serialized += aaWorld.z;
         serialized += "},";
 
-        serialized += "id:";
+        serialized += "\"id\":";
         serialized += 1;
-        serialized += ",isDataValid:";
+        serialized += ",\"isDataValid\":";
         serialized += "true";
-        serialized += ",timestamp:";
+        serialized += ",\"timestamp\":";
         serialized += millis();
         serialized += "}}";
 
-        Serial.println(serialized);
+        //Serial.println(serialized);
 
         // blink LED to indicate activity
         blinkState = !blinkState;
+    }
+
+    // Check if a client has connected
+    WiFiClient client = server.available();
+    if (!client) {
+      return;
+    }
+    else {
+      // Wait until the client sends some data
+      Serial.println("new client");
+      while(!client.available()){
+        delay(1);
+      }
+
+      // Read the first line of the request
+      String request = client.readStringUntil('\r');
+      Serial.println(request);
+      client.flush();
+
+      // Return the response
+      client.println("HTTP/1.1 200 OK");
+      client.println("Content-Type: application/json; charset=utf-8");
+      client.println(""); //  do not forget this one
+      client.println(serialized);
+
+      delay(1);
+      Serial.println("Client disconnected");
+      Serial.println("");
     }
 }
