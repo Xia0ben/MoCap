@@ -22,22 +22,50 @@ import sys
 import serial
 import glob
 import os
+import time
+import socket
+import subprocess as sp
+import http.client as httplib
 file = open("B:\\Users\\Xavier\\git\\MotioSuit\\Blender\\log.txt","w")
 file.write("initLog")
 file.close()
-
 print("-------------------------------------------------------------------------------------------")
 print(os.path.abspath("log.txt"))
-
+servers=[]
 def printLog(text):
     print(text)
     file = open("B:\\Users\\Xavier\\git\\MotioSuit\\Blender\\log.txt","a")
     file.write(str(text)+"\n")
     file.close()
+ 
+def connectWIFI(ip):
+    http_server = ip
+    conn = httplib.HTTPConnection(http_server)
+    servers.append([ip,conn])
+
+def connectSocket(ip):
+    socketClient = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    socketClient.connect()
+    servers.append([ip,socketClient])
+
+def getQuaternionWifi(ip):
+    #request command to server
+    conn=""
+    for s in servers:
+        if(s[0]==ip):
+            conn=s[1]
+    if(not(conn=="")):
+        conn.request("GET", "")
+
+        #get response from server
+        rsp = conn.getresponse()
+        return rsp.read()
+  
+    return "error"
+    
 
 
-
-printLog("debutLog")
+#connectWIFI("192.168.4.1")
 
 
 #port=''.join(glob.glob("/dev/ttyACM*"))
@@ -60,12 +88,18 @@ ob = bge.logic.getCurrentController().owner
 # idCapteur: X=angleX,Y=angleY, Z=angleZ, W=angleW (?) --> angles[i]
 def updateAngles():
     corrompu=False
+    t0 = time.time()
     ser.write("a".encode('UTF-8'))
     s=ser.readline().decode('UTF-8')
     #printLog(s+" endline")
+    #s=getQuaternionWifi("192.168.4.1")
+    
     if(s==""):
         return
+    #sensorData=json.loads(s.decode())
     sensorData=json.loads(s)
+
+    print ("time:", time.time()-t0)
     #printLog("obj: "+str(sensorData))
     angles=[sensorData["sensor"]["quaternion"]["w"],sensorData["sensor"]["quaternion"]["x"],sensorData["sensor"]["quaternion"]["y"],sensorData["sensor"]["quaternion"]["z"]]
     isValid=sensorData["sensor"]["isDataValid"]
@@ -112,7 +146,7 @@ def updateAngles():
     ob.channels['lowerLegL'].rotation_quaternion = lowerLegL_out
     """
     ob.update()
-    time.sleep(0.001)
+    #time.sleep(0.001)
 
 
 
