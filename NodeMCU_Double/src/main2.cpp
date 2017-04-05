@@ -1,74 +1,45 @@
-// #include <Arduino.h>
-//
+// /*
+//  * NodeMCU/ESP8266 act as AP (Access Point) and simplest Web Server
+//  * Connect to AP "arduino-er", password = "password"
+//  * Open browser, visit 192.168.4.1
+//  */
 // #include <ESP8266WiFi.h>
+// #include <WiFiClient.h>
+// #include <ESP8266WebServer.h>
 //
-// const char* ssid = "foobarwifi";
-// const char* password = "foobarkey";
+// const char *ssid = "arduino-er";
+// const char *password = "password";
 //
-// WiFiServer server(80);
+// ESP8266WebServer server(80);
+//
+// void handleRoot() {
+//     server.send(200, "text/html", "<h1>Hello! from arduino-er!</h1>");
+// }
+//
+// char* htmlBody_help = "<h1>Help</h1><br/>\n"
+//   "Visit http://192.168.4.1/ to access web server.<br/>\n"
+//   "Visit http://192.168.4.1/help to access this page.<br/>\n";
+//
+// void handleHelp(){
+//   server.send(200, "text/html", htmlBody_help);
+// }
 //
 // void setup() {
-//   Serial.begin(115200);
-//   delay(10);
+//     delay(1000);
+//     Serial.begin(9600);
+//     Serial.println();
 //
-//   // Connect to WiFi network
-//   Serial.println();
-//   Serial.println();
-//   Serial.print("Connecting to ");
-//   Serial.println(ssid);
+//     WiFi.softAP(ssid, password);
 //
-//   WiFi.begin(ssid, password);
-//
-//   while (WiFi.status() != WL_CONNECTED) {
-//     delay(500);
-//     Serial.print(".");
-//   }
-//   Serial.println("");
-//   Serial.println("WiFi connected");
-//
-//   // Start the server
-//   server.begin();
-//   Serial.println("Server started");
-//
-//   // Print the IP address
-//   Serial.print("Use this URL to connect: ");
-//   Serial.print("http://");
-//   Serial.print(WiFi.localIP());
-//   Serial.println("/");
-//
+//     IPAddress apip = WiFi.softAPIP();
+//     Serial.print("visit: \n");
+//     Serial.println(apip);
+//     server.on("/", handleRoot);
+//     server.on("/help", handleHelp);
+//     server.begin();
+//     Serial.println("HTTP server beginned");
 // }
 //
 // void loop() {
-//   // Check if a client has connected
-//   WiFiClient client = server.available();
-//   if (!client) {
-//     return;
-//   }
-//   else {
-//     // Wait until the client sends some data
-//     Serial.println("new client");
-//     while(!client.available()){
-//       delay(1);
-//     }
-//
-//     // Read the first line of the request
-//     String request = client.readStringUntil('\r');
-//     Serial.println(request);
-//     client.flush();
-//
-//     // Return the response
-//     client.println("HTTP/1.1 200 OK");
-//     client.println("Content-Type: application/json; charset=utf-8");
-//     client.println(""); //  do not forget this one
-//     client.println("<!DOCTYPE HTML>");
-//     client.println("<html>");
-//     client.println("<br><br>");
-//     client.println("<a href=\"/LED=ON\"\"><button>Turn On </button></a>");
-//     client.println("<a href=\"/LED=OFF\"\"><button>Turn Off </button></a><br />");
-//     client.println("</html>");
-//
-//     delay(1);
-//     Serial.println("Client disconnected");
-//     Serial.println("");
-//   }
+//     server.handleClient();
 // }

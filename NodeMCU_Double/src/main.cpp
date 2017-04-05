@@ -99,11 +99,19 @@ uint8_t teapotPacket[14] = { '$', 0x02, 0,0, 0,0, 0,0, 0,0, 0x00, 0x00, '\r', '\
 // ================================================================
 
 #include <ESP8266WiFi.h>
+#include <WiFiClient.h>
+#include <ESP8266WebServer.h>
 
-const char* ssid = "iPhone_de_Marc";
-const char* password = "IWannaPlayMinetest";
+const char *ssid = "arduino-er";
+const char *password = "password";
 
-WiFiServer server(80);
+ESP8266WebServer server(80);
+
+String serialized = "";
+
+void handleRoot() {
+    server.send(200, "application/json", serialized);
+}
 
 // ================================================================
 // ===               INTERRUPT DETECTION ROUTINE                ===
@@ -136,30 +144,17 @@ void setup() {
 
     while (!Serial); // wait for Leonardo enumeration, others continue immediately
 
-    // Connect to WiFi network
+    // Start wifi ap
     Serial.println();
-    Serial.println();
-    Serial.print("Connecting to ");
-    Serial.println(ssid);
 
-    WiFi.begin(ssid, password);
+    WiFi.softAP(ssid, password);
 
-    while (WiFi.status() != WL_CONNECTED) {
-      delay(500);
-      Serial.print(".");
-    }
-    Serial.println("");
-    Serial.println("WiFi connected");
-
-    // Start the server
+    IPAddress apip = WiFi.softAPIP();
+    Serial.print("visit: \n");
+    Serial.println(apip);
+    server.on("/", handleRoot);
     server.begin();
-    Serial.println("Server started");
-
-    // Print the IP address
-    Serial.print("Use this URL to connect: ");
-    Serial.print("http://");
-    Serial.print(WiFi.localIP());
-    Serial.println("/");
+    Serial.println("HTTP server began");
 
     // NOTE: 8MHz or slower host processors, like the Teensy @ 3.3v or Ardunio
     // Pro Mini running at 3.3v, cannot handle this baud rate reliably due to
@@ -181,10 +176,10 @@ void setup() {
     devStatus = mpu.dmpInitialize();
 
     // supply your own gyro offsets here, scaled for min sensitivity
-    mpu.setXGyroOffset(220);
-    mpu.setYGyroOffset(76);
-    mpu.setZGyroOffset(-85);
-    mpu.setZAccelOffset(1788); // 1688 factory default for my test chip
+    // mpu.setXGyroOffset(220);
+    // mpu.setYGyroOffset(76);
+    // mpu.setZGyroOffset(-85);
+    // mpu.setZAccelOffset(1788); // 1688 factory default for my test chip
 
     // make sure it worked (returns 0 if so)
     if (devStatus == 0) {
@@ -219,12 +214,11 @@ void setup() {
 // ================================================================
 // ===                    MAIN PROGRAM LOOP                     ===
 // ================================================================
-
-String serialized = "";
-
 void loop() {
     // if programming failed, don't try to do anything
     if (!dmpReady) return;
+
+    //server.handleClient();
 
     // wait for MPU interrupt or extra packet(s) available
     while (!mpuInterrupt && fifoCount < packetSize) {
@@ -336,37 +330,9 @@ void loop() {
         serialized += millis();
         serialized += "}}";
 
-        //Serial.println(serialized);
+        Serial.println(serialized);
 
         // blink LED to indicate activity
         blinkState = !blinkState;
-    }
-
-    // Check if a client has connected
-    WiFiClient client = server.available();
-    if (!client) {
-      return;
-    }
-    else {
-      // Wait until the client sends some data
-      Serial.println("new client");
-      while(!client.available()){
-        delay(1);
-      }
-
-      // Read the first line of the request
-      String request = client.readStringUntil('\r');
-      Serial.println(request);
-      client.flush();
-
-      // Return the response
-      client.println("HTTP/1.1 200 OK");
-      client.println("Content-Type: application/json; charset=utf-8");
-      client.println(""); //  do not forget this one
-      client.println(serialized);
-
-      delay(1);
-      Serial.println("Client disconnected");
-      Serial.println("");
     }
 }
