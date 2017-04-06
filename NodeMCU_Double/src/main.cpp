@@ -98,6 +98,7 @@ uint8_t teapotPacket[14] = { '$', 0x02, 0,0, 0,0, 0,0, 0,0, 0x00, 0x00, '\r', '\
 // ===                   ESP8266 Wifi setup                     ===
 // ================================================================
 
+/* TOREMOVE , server code
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
@@ -107,11 +108,14 @@ const char *password = "password";
 
 ESP8266WebServer server(80);
 
-String serialized = "";
-
 void handleRoot() {
     server.send(200, "application/json", serialized);
-}
+}*/
+
+String serialized = "";
+
+#include <ESP8266HTTPClient.h>
+#include <ESP8266WiFi.h>
 
 // ================================================================
 // ===               INTERRUPT DETECTION ROUTINE                ===
@@ -144,7 +148,7 @@ void setup() {
 
     while (!Serial); // wait for Leonardo enumeration, others continue immediately
 
-    // Start wifi ap
+    /*// Start wifi ap TOREMOVE server code
     Serial.println();
 
     WiFi.softAP(ssid, password);
@@ -155,6 +159,14 @@ void setup() {
     server.on("/", handleRoot);
     server.begin();
     Serial.println("HTTP server began");
+    */
+
+    WiFi.begin("iPhone_de_Marc", "IWannaPlayMinetest");   //WiFi connection
+
+    while (WiFi.status() != WL_CONNECTED) {  //Wait for the WiFI connection completion
+      delay(500);
+      Serial.println("Waiting for connection");
+    }
 
     // NOTE: 8MHz or slower host processors, like the Teensy @ 3.3v or Ardunio
     // Pro Mini running at 3.3v, cannot handle this baud rate reliably due to
@@ -218,7 +230,7 @@ void loop() {
     // if programming failed, don't try to do anything
     if (!dmpReady) return;
 
-    //server.handleClient();
+    //server.handleClient(); TOREMOVE server code
 
     // wait for MPU interrupt or extra packet(s) available
     while (!mpuInterrupt && fifoCount < packetSize) {
@@ -281,46 +293,46 @@ void loop() {
         serialized += q.z;
         serialized += "},";
 
-        // display Euler angles in degrees
-        serialized += "\"eulerAngles\":{";
-        serialized += "\"alpha\":";
-        serialized += euler[0] * 180/M_PI;
-        serialized += ",\"beta\":";
-        serialized += euler[1] * 180/M_PI;
-        serialized += ",\"gamma\":";
-        serialized += euler[2] * 180/M_PI;
-        serialized += "},";
-
-        // display YPR angles in degrees
-        serialized += "\"yawPitchRoll\":{";
-        serialized += "\"yaw\":";
-        serialized += ypr[0] * 180/M_PI;
-        serialized += ",\"pitch\":";
-        serialized += ypr[1] * 180/M_PI;
-        serialized += ",\"roll\":";
-        serialized += ypr[2] * 180/M_PI;
-        serialized += "},";
-
-        // display real acceleration, adjusted to remove gravity
-        serialized += "\"acceleration\":{";
-        serialized += "\"x\":";
-        serialized += aaReal.x;
-        serialized += ",\"y\":";
-        serialized += aaReal.y;
-        serialized += ",\"z\":";
-        serialized += aaReal.z;
-        serialized += "},";
-
-        // display initial world-frame acceleration, adjusted to remove gravity
-        // and rotated based on known orientation from quaternion
-        serialized += "\"worldAcceleration\":{";
-        serialized += "\"x\":";
-        serialized += aaWorld.x;
-        serialized += ",\"y\":";
-        serialized += aaWorld.y;
-        serialized += ",\"z\":";
-        serialized += aaWorld.z;
-        serialized += "},";
+        // // display Euler angles in degrees
+        // serialized += "\"eulerAngles\":{";
+        // serialized += "\"alpha\":";
+        // serialized += euler[0] * 180/M_PI;
+        // serialized += ",\"beta\":";
+        // serialized += euler[1] * 180/M_PI;
+        // serialized += ",\"gamma\":";
+        // serialized += euler[2] * 180/M_PI;
+        // serialized += "},";
+        //
+        // // display YPR angles in degrees
+        // serialized += "\"yawPitchRoll\":{";
+        // serialized += "\"yaw\":";
+        // serialized += ypr[0] * 180/M_PI;
+        // serialized += ",\"pitch\":";
+        // serialized += ypr[1] * 180/M_PI;
+        // serialized += ",\"roll\":";
+        // serialized += ypr[2] * 180/M_PI;
+        // serialized += "},";
+        //
+        // // display real acceleration, adjusted to remove gravity
+        // serialized += "\"acceleration\":{";
+        // serialized += "\"x\":";
+        // serialized += aaReal.x;
+        // serialized += ",\"y\":";
+        // serialized += aaReal.y;
+        // serialized += ",\"z\":";
+        // serialized += aaReal.z;
+        // serialized += "},";
+        //
+        // // display initial world-frame acceleration, adjusted to remove gravity
+        // // and rotated based on known orientation from quaternion
+        // serialized += "\"worldAcceleration\":{";
+        // serialized += "\"x\":";
+        // serialized += aaWorld.x;
+        // serialized += ",\"y\":";
+        // serialized += aaWorld.y;
+        // serialized += ",\"z\":";
+        // serialized += aaWorld.z;
+        // serialized += "},";
 
         serialized += "\"id\":";
         serialized += 1;
@@ -330,7 +342,25 @@ void loop() {
         serialized += millis();
         serialized += "}}";
 
-        Serial.println(serialized);
+        //Serial.println(serialized); UNCOMMENT FOR DEBUG
+
+        if(WiFi.status()== WL_CONNECTED){   //Check WiFi connection status
+            HTTPClient http;    //Declare object of class HTTPClient
+
+            http.begin("http://192.168.12.100:80/");      //Specify request destination
+            http.addHeader("Content-Type", "application/json");  //Specify content-type header
+
+            int httpCode = http.POST(serialized);   //Send the request
+            String payload = http.getString();                                        //Get the response payload
+
+            Serial.println(httpCode);   //Print HTTP return code
+            Serial.println(payload);    //Print request response payload
+
+            http.end();  //Close connection
+        }
+        else{
+            Serial.println("Error in WiFi connection");
+        }
 
         // blink LED to indicate activity
         blinkState = !blinkState;
