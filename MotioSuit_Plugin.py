@@ -23,7 +23,7 @@ bl_info = {
     "wiki_url": "",
     "category": "",
 }
-
+servThread=None
 
 class myHandler(BaseHTTPRequestHandler):
 
@@ -67,6 +67,7 @@ class VIEW3D_PT_MotioCapture(bpy.types.Panel):
     def draw(self, context) :
         TheCol = self.layout.column(align = True)
         TheCol.operator("object.motiocapture", text = "MotionCapture")
+        TheCol.operator("object.motiocapturestop", text = "MotionCaptureStop")
             
         
 
@@ -75,19 +76,29 @@ class MotioCapture(bpy.types.Operator):
     bl_idname = "object.motiocapture"
     bl_label = "MotioCapture"
     bl_options = {'REGISTER', 'UNDO', 'PRESET'}
-   
+        
     def execute(self, context):
-        print('launching script..')
-        
-
-        
-        servThread=ThreadListener()
+        print('launching script..')       
         bpy.ops.object.posemode_toggle()
+        global servThread
+        servThread=ThreadListener()
         servThread.start()
         
         return {'FINISHED'}
     #end invoke
 
+class MotioCaptureStop(bpy.types.Operator):
+    bl_idname = "object.motiocapturestop"
+    bl_label = "MotioCaptureStop"
+    bl_options = {'REGISTER', 'UNDO', 'PRESET'}
+   
+    def execute(self, context):
+        print('stopping script')
+        global servThread
+        if not(servThread==None):
+            servThread.httpd.shutdown()
+        return {'FINISHED'}
+    #end invoke
 
 
 class ThreadListener(Thread):
@@ -97,13 +108,16 @@ class ThreadListener(Thread):
         self.PORT = 80
         self.server_address = ("", self.PORT)
 
-        self.server = http.server.HTTPServer
+        
+        self.httpd = None
+       
         print("Serveur actif sur le port :", self.PORT)
         
  
     def run(self):
-        httpd = self.server(self.server_address, myHandler)
-        httpd.serve_forever()
+        server = http.server.HTTPServer
+        self.httpd = server(self.server_address, myHandler)
+        self.httpd.serve_forever()
         
 
         
