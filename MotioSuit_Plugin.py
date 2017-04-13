@@ -12,6 +12,7 @@ from bpy.props import *
 import http.server
 from threading import Thread
 from http.server import BaseHTTPRequestHandler,HTTPServer
+import time
 bl_info = {
     "name": "Plugin de MotionCapture",
     "author": "Arkmut",
@@ -24,9 +25,11 @@ bl_info = {
     "category": "",
 }
 servThread=None
-
+timeInit=-1
+interFrames=1
+timePeriod=1.0/30
+area=None
 class myHandler(BaseHTTPRequestHandler):
-
     #Handler for the GET requests
     def do_GET(self):
         if self.path=="/":
@@ -51,6 +54,16 @@ class myHandler(BaseHTTPRequestHandler):
         pbase=bpy.data.objects["Armature"].pose.bones['Tronc']
         pbase.rotation_mode = 'QUATERNION'
         pbase.rotation_quaternion = mathutils.Quaternion((angles[0],angles[1],angles[2],angles[3]))
+        global timeInit
+        global interFrames
+        global timePeriod
+        if(time.process_time()-timeInit>=timePeriod):
+            #bpy.context.scene.active = bpy.data.scenes["Scene"].(null)
+            timeInit=time.process_time()
+            bpy.context.scene.frame_set(bpy.context.scene.frame_current+interFrames)
+            bpy.ops.anim.keyframe_insert_menu(type='__ACTIVE__')
+            #pbase.keyframe_insert('location',group="LocRot")
+            #pbase.keyframe_insert("rotation_quaternion",group="LocRot")
         return
 
 
@@ -80,7 +93,12 @@ class MotioCapture(bpy.types.Operator):
     def execute(self, context):
         print('launching script..')       
         bpy.ops.object.posemode_toggle()
+        scn = bpy.context.scene
+        scn.frame_start = 0
+        scn.frame_end = 250
         global servThread
+        global area
+        area=bpy.context.area
         servThread=ThreadListener()
         servThread.start()
         
@@ -115,8 +133,13 @@ class ThreadListener(Thread):
         
  
     def run(self):
+        global area
+        area.type = 'VIEW_3D'
         server = http.server.HTTPServer
         self.httpd = server(self.server_address, myHandler)
+        global timeInit
+        timeInit=time.process_time()
+        bpy.context.scene.frame_set(0)
         self.httpd.serve_forever()
         
 
