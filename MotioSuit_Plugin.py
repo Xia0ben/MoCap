@@ -50,17 +50,20 @@ threadLock = None
 #---------------------------------------------------- Server-----------------------------------------------------       
             
 def findNameInDns(dns,id):
-    for item in dns:
+    for i in range (0,len(dns)):
+        item=dns[i]
         if(item.id==id):
             return item.name
     return "notFound"
 def findOffSetInDns(dns,name):
-    for item in dns:
+    for i in range (0,len(dns)):
+        item=dns[i]
         if(item.name==name):
             return item.rot
     return None
 def asyncReading(object,value,frame):
     #print("trigger Async: "+value)
+    print("received data for:"+value)
     global area
     area.type = 'VIEW_3D'
     pbase=object.pose.bones[value]
@@ -70,9 +73,13 @@ def asyncReading(object,value,frame):
     angles = pileQuaternions[value]
     
     #apply rotation
-    offset=findOffSetInDns(bpy.types.Scene.dns,value)
+    offset=findOffSetInDns(bpy.context.scene.dns,value).copy()
     newRot=mathutils.Quaternion((angles[0],angles[1],angles[2],angles[3]))
-    pbase.rotation_quaternion = newRot.rotation_difference(offset)
+    print("offset: ",offset)
+    print("rot: ",newRot)
+    pbase.rotation_quaternion = offset*newRot
+    print("tot: ",pbase.rotation_quaternion)
+
     global timeInit
     global interFrames
     global timePeriod
@@ -82,10 +89,10 @@ def asyncReading(object,value,frame):
         timeInit=time.process_time()
         #bpy.ops.anim.keyframe_insert_menu(type='__ACTIVE__')
         #pbase.keyframe_insert('location',group="LocRot")
-        
         pbase.keyframe_insert(data_path='rotation_quaternion',frame=bpy.context.scene.frame_current+interFrames)
         bpy.context.scene.frame_set(bpy.context.scene.frame_current+interFrames)        
     object["trigger"]=""
+
 def my_handler(scene):
     global pileQuaternions
     if(bpy.data.objects["Armature"]["trigger"]!="" and len(pileQuaternions)>0):
@@ -116,7 +123,7 @@ class myHandler(BaseHTTPRequestHandler):
         angles=[sensorData["sensor"]["quaternion"]["w"],sensorData["sensor"]["quaternion"]["x"],sensorData["sensor"]["quaternion"]["y"],sensorData["sensor"]["quaternion"]["z"]]
         #check if the data is valid (and not cut by the network, or even broken before sending)
         isValid=sensorData["sensor"]["isDataValid"]
-        name=findNameInDns(bpy.types.Scene.dns,id)
+        name=findNameInDns(bpy.context.scene.dns,id)
         pileQuaternions[name]=angles
         #TODO detect bone concerned by the data
         #example for one bone
@@ -144,7 +151,7 @@ class DNSItem(bpy.types.PropertyGroup):
     rot =  bpy.props.FloatVectorProperty(
            name="rot",
            description="quaternion rotation",
-           default=[0,0,0,0],
+           default=[1,0,0,0],
            subtype ='QUATERNION',
            size=4)
            
@@ -251,9 +258,8 @@ class UpdateBoneList(bpy.types.Operator):
         i=0
         for b in bpy.data.objects["Armature"].pose.bones:
             item=scn.dns.add()
-            item.id=i
+            item.id=-1
             item.name=b.name
-            i+=1
         return {'FINISHED'}
     #end invoke
 
